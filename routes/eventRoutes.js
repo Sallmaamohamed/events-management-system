@@ -1,8 +1,11 @@
 const router = require('express').Router();
+
 const { getEvents, createEvent } = require('../controllers/eventController');
-const { protect, restricTo } = require('../middlewares/auth');
+
+const { protect, restrictTo } = require('../middlewares/auth');
 
 router.get('/', getEvents);
-router.post('/', protect, restricTo('organizer', 'admin'), createEvent);
+
+router.post('/', protect, restrictTo('organizer', 'admin'), createEvent);
 
 module.exports = router;
