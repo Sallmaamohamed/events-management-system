@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard - EventSys</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="admin-body">
+
+  <div class="sidebar">
+    <h2>Admin Center</h2>
+    <ul>
+      <li><a href="#overview" class="active">Overview</a></li>
+      <li><a href="#users">Users Directory</a></li>
+      <li><a href="index.html">Back to Site</a></li>
+    </ul>
+  </div>
+
+  <div class="admin-content">
+    <header class="admin-header">
+      <h1>System Dashboard</h1>
+    </header>
+
+    <section class="stats-grid">
+      <div class="stat-card">
+        <h3>Total Users</h3>
+        <p id="statUsers">0</p>
+      </div>
+      <div class="stat-card">
+        <h3>Active Events</h3>
+        <p id="statEvents">0</p>
+      </div>
+      <div class="stat-card">
+        <h3>Total Bookings</h3>
+        <p id="statBookings">0</p>
+      </div>
+      <div class="stat-card highlight">
+        <h3>Total Revenue</h3>
+        <p id="statRevenue">$0</p>
+      </div>
+    </section>
+
+    <section class="table-section">
+      <h2>Registered Accounts</h2>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>User ID</th>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Role</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="usersTableBody">
+          <!-- Users loaded dynamically -->
+        </tbody>
+      </table>
+    </section>
+  </div>
+
+  <script src="admin.js"></script>
+</body>
+</html>

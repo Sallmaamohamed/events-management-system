@@ -19,6 +19,7 @@ app.use('/api/events', require('./routes/eventRoutes'));
 app.use('/api/bookings', require('./routes/bookingRoutes'));
 app.use('/api/admin', require('./routes/adminRoutes'));
 app.use('/api/tickets', ticketRoutes);
+app.use(express.static('public'));
 
 // Health check
 app.get('/', (req, res) => {
