@@ -1,5 +1,6 @@
 const express = require('express');
 const dotenv = require('dotenv');
+
 const connectDB = require('./config/db');
 const errorHandler = require('./middlewares/errorHandler');
 const ticketRoutes = require('./routes/ticketRoutes');
@@ -19,6 +20,8 @@ app.use('/api/events', require('./routes/eventRoutes'));
 app.use('/api/bookings', require('./routes/bookingRoutes'));
 app.use('/api/admin', require('./routes/adminRoutes'));
 app.use('/api/tickets', ticketRoutes);
+
+// Serve frontend
 app.use(express.static('public'));
 
 // Health check

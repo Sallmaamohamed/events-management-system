@@ -1,15 +1,10 @@
 const Ticket = require('../models/Ticket');
 const TicketInventoryLog = require('../models/TicketInventoryLog');
 
-// 1. Create - إضافة فئة تذكرة جديدة لـ Event
-exports.createTicket = async (req, res) => {
+// 1. Create - إنشاء فئة تذكرة جديدة لـ Event
+exports.createTicket = async (req, res, next) => {
   try {
-    const { eventId, type, price, capacity, salesStartDate, salesEndDate } = req.body;
-
-    // المتاح في البداية = السعة الإجمالية
-    const availableQuantity = capacity;
-
-    const ticket = await Ticket.create({
+    const {
       eventId,
       type,
       price,
@@ -17,132 +12,210 @@ exports.createTicket = async (req, res) => {
       availableQuantity,
       salesStartDate,
       salesEndDate,
+    } = req.body;
+
+    const initialQuantity =
+      availableQuantity !== undefined ? availableQuantity : capacity;
+
+    if (initialQuantity < 0 || initialQuantity > capacity) {
+      return res.status(400).json({
+        message: 'Available quantity must be between 0 and capacity',
+      });
+    }
+
+    const ticket = await Ticket.create({
+      eventId,
+      type,
+      price,
+      capacity,
+      availableQuantity: initialQuantity,
+      salesStartDate,
+      salesEndDate,
     });
 
-    // تسجيل العملية في الـ Inventory Log
+    // تسجيل العملية في Inventory Log
     await TicketInventoryLog.create({
       ticketId: ticket._id,
       actionType: 'initial_create',
-      quantityChanged: capacity,
+      quantityChanged: initialQuantity,
       previousQuantity: 0,
-      newQuantity: capacity,
+      newQuantity: initialQuantity,
       reason: 'Initial creation of ticket tier',
     });
 
     res.status(201).json({
-      status: 'success',
-      data: { ticket },
+      success: true,
+      data: ticket,
     });
   } catch (error) {
-    res.status(400).json({ status: 'fail', message: error.message });
+    next(error);
   }
 };
 
-// 2. Read All - عرض كل التذاكر المتاحة لحدث معين (للعملاء والأدمن)
-exports.getTicketsByEvent = async (req, res) => {
+// 2. Read All - عرض كل التذاكر الخاصة بـ Event معين
+exports.getTicketsByEvent = async (req, res, next) => {
   try {
-    const { eventId } = req.params;
-
     const tickets = await Ticket.find({
-      eventId,
-      status: { $ne: 'deleted' }, // عدم عرض المحذوف
+      eventId: req.params.eventId,
+      status: { $ne: 'deleted' },
     });
 
     res.status(200).json({
-      status: 'success',
-      results: tickets.length,
-      data: { tickets },
+      success: true,
+      count: tickets.length,
+      data: tickets,
     });
   } catch (error) {
-    res.status(400).json({ status: 'fail', message: error.message });
+    next(error);
   }
 };
 
-// 3. Read Single - جلب تفاصيل تذكرة واحدة بالـ ID
-exports.getTicketById = async (req, res) => {
+// 3. Read Single - عرض تذكرة واحدة
+exports.getTicketById = async (req, res, next) => {
   try {
-    const ticket = await Ticket.findById(req.params.id);
-
-    if (!ticket || ticket.status === 'deleted') {
-      return res.status(404).json({ status: 'fail', message: 'Ticket not found' });
-    }
-
-    res.status(200).json({
-      status: 'success',
-      data: { ticket },
-    });
-  } catch (error) {
-    res.status(400).json({ status: 'fail', message: error.message });
-  }
-};
-
-// 4. Update - تعديل بيانات التذكرة (السعر، المواعيد)
-exports.updateTicket = async (req, res) => {
-  try {
-    // نمنع تعديل الكميات المباشر هنا (لأن لها endpoint مخصص للـ Inventory)
-    const { capacity, availableQuantity, ...updateData } = req.body;
-
-    const ticket = await Ticket.findByIdAndUpdate(req.params.id, updateData, {
-      new: true,
-      runValidators: true,
+    const ticket = await Ticket.findOne({
+      _id: req.params.id,
+      status: { $ne: 'deleted' },
     });
 
     if (!ticket) {
-      return res.status(404).json({ status: 'fail', message: 'Ticket not found' });
+      return res.status(404).json({
+        message: 'التذكرة غير موجودة',
+      });
     }
 
     res.status(200).json({
-      status: 'success',
-      data: { ticket },
+      success: true,
+      data: ticket,
     });
   } catch (error) {
-    res.status(400).json({ status: 'fail', message: error.message });
+    next(error);
   }
 };
 
-// 5. Inventory Adjustment - زيادة/تقليل المخزون يدوياً بواسطة الأدمن
-exports.adjustInventory = async (req, res) => {
+// 4. Update - تعديل بيانات التذكرة
+exports.updateTicket = async (req, res, next) => {
+  try {
+    // لا نسمح بتعديل المخزون مباشرة من هنا
+    const allowedFields = [
+      'type',
+      'price',
+      'salesStartDate',
+      'salesEndDate',
+      'status',
+    ];
+
+    const updates = {};
+
+    for (const field of allowedFields) {
+      if (req.body[field] !== undefined) {
+        updates[field] = req.body[field];
+      }
+    }
+
+    const ticket = await Ticket.findOneAndUpdate(
+      {
+        _id: req.params.id,
+        status: { $ne: 'deleted' },
+      },
+      updates,
+      {
+        new: true,
+        runValidators: true,
+      }
+    );
+
+    if (!ticket) {
+      return res.status(404).json({
+        message: 'التذكرة غير موجودة',
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: ticket,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// 5. Inventory Adjustment - تعديل المخزون
+exports.adjustInventory = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { changeQuantity, reason } = req.body; // changeQuantity ممكن تكون موجبة (+20) أو سالبة (-10)
 
-    const ticket = await Ticket.findById(id);
+    // دعم quantity من main
+    // و changeQuantity من integration
+    const quantity =
+      req.body.quantity !== undefined
+        ? req.body.quantity
+        : req.body.changeQuantity;
+
+    const reason = req.body.reason;
+
+    if (typeof quantity !== 'number' || quantity === 0) {
+      return res.status(400).json({
+        message: 'يجب إرسال quantity كرقم غير صفري',
+      });
+    }
+
+    const ticket = await Ticket.findOne({
+      _id: id,
+      status: { $ne: 'deleted' },
+    });
+
     if (!ticket) {
-      return res.status(404).json({ status: 'fail', message: 'Ticket not found' });
+      return res.status(404).json({
+        message: 'التذكرة غير موجودة',
+      });
     }
 
     const previousQuantity = ticket.availableQuantity;
-    const newQuantity = previousQuantity + changeQuantity;
+    const newQuantity = previousQuantity + quantity;
 
     if (newQuantity < 0) {
-      return res.status(400).json({ status: 'fail', message: 'Available quantity cannot be negative' });
+      return res.status(400).json({
+        message: 'لا يمكن أن تصبح الكمية المتاحة أقل من صفر',
+      });
+    }
+
+    if (newQuantity > ticket.capacity) {
+      return res.status(400).json({
+        message: 'الكمية المتاحة لا يمكن أن تتجاوز السعة',
+      });
     }
 
     ticket.availableQuantity = newQuantity;
-    ticket.capacity += changeQuantity > 0 ? changeQuantity : 0; // تعديل الـ capacity إذا زاد العدد
+
+    // لو بنزود المخزون، نزود الـ capacity أيضًا
+    if (quantity > 0) {
+      ticket.capacity += quantity;
+    }
+
     await ticket.save();
 
-    // تسجيل التعديل في الـ Logs
+    // تسجيل التعديل في Inventory Logs
     await TicketInventoryLog.create({
       ticketId: ticket._id,
-      actionType: changeQuantity > 0 ? 'increase' : 'decrease',
-      quantityChanged: Math.abs(changeQuantity),
+      actionType: quantity > 0 ? 'increase' : 'decrease',
+      quantityChanged: Math.abs(quantity),
       previousQuantity,
       newQuantity,
       reason: reason || 'Manual Admin adjustment',
     });
 
     res.status(200).json({
-      status: 'success',
-      data: { ticket },
+      success: true,
+      data: ticket,
     });
   } catch (error) {
-    res.status(400).json({ status: 'fail', message: error.message });
+    next(error);
   }
 };
 
-// 6. Delete - حذف نرم (Soft Delete) للتذكرة
-exports.deleteTicket = async (req, res) => {
+// 6. Delete - Soft Delete للتذكرة
+exports.deleteTicket = async (req, res, next) => {
   try {
     const ticket = await Ticket.findByIdAndUpdate(
       req.params.id,
@@ -151,29 +224,33 @@ exports.deleteTicket = async (req, res) => {
     );
 
     if (!ticket) {
-      return res.status(404).json({ status: 'fail', message: 'Ticket not found' });
+      return res.status(404).json({
+        message: 'التذكرة غير موجودة',
+      });
     }
 
     res.status(200).json({
-      status: 'success',
-      message: 'Ticket deleted successfully',
+      success: true,
+      message: 'تم حذف التذكرة',
     });
   } catch (error) {
-    res.status(400).json({ status: 'fail', message: error.message });
+    next(error);
   }
 };
 
-// 7. Get Inventory Logs - عرض سجل التغييرات للتذكرة (الأدمن)
-exports.getTicketLogs = async (req, res) => {
+// 7. Get Inventory Logs - عرض سجل تغييرات المخزون
+exports.getTicketLogs = async (req, res, next) => {
   try {
-    const logs = await TicketInventoryLog.find({ ticketId: req.params.id }).sort({ createdAt: -1 });
+    const logs = await TicketInventoryLog.find({
+      ticketId: req.params.id,
+    }).sort({ createdAt: -1 });
 
     res.status(200).json({
-      status: 'success',
-      results: logs.length,
-      data: { logs },
+      success: true,
+      count: logs.length,
+      data: logs,
     });
   } catch (error) {
-    res.status(400).json({ status: 'fail', message: error.message });
+    next(error);
   }
 };

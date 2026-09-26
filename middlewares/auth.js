@@ -37,7 +37,7 @@ const protect = async (req, res, next) => {
     req.user = user;
 
     next();
-  } catch (err) {
+  } catch (error) {
     return res.status(401).json({
       message: 'جلسة الدخول غير صالحة'
     });

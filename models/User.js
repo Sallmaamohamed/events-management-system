@@ -5,7 +5,7 @@ const userSchema = new mongoose.Schema(
     name: {
       type: String,
       required: true,
-      trim: true
+      trim: true,
     },
 
     email: {
@@ -13,28 +13,28 @@ const userSchema = new mongoose.Schema(
       required: true,
       unique: true,
       lowercase: true,
-      trim: true
+      trim: true,
     },
 
     password: {
       type: String,
-      required: true
+      required: true,
     },
 
     role: {
       type: String,
-      enum: ['Attendee', 'Organizer', 'Admin'],
-      default: 'Attendee'
+      enum: ['admin', 'organizer', 'attendee'],
+      default: 'attendee',
     },
 
     status: {
       type: String,
       enum: ['Active', 'Suspended'],
-      default: 'Active'
-    }
+      default: 'Active',
+    },
   },
   {
-    timestamps: true
+    timestamps: true,
   }
 );
 

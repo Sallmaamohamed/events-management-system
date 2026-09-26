@@ -4,7 +4,7 @@ const jwt = require('jsonwebtoken');
 
 exports.register = async (req, res, next) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, email, password, role } = req.body;
 
     if (!name || !email || !password) {
       return res.status(400).json({
@@ -23,11 +23,21 @@ exports.register = async (req, res, next) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
+    const allowedRoles = ['admin', 'organizer', 'attendee'];
+
+    const userRole = role || 'attendee';
+
+    if (!allowedRoles.includes(userRole)) {
+      return res.status(400).json({
+        message: 'Invalid user role'
+      });
+    }
+
     const user = await User.create({
       name,
       email,
       password: hashedPassword,
-      role: 'Attendee'
+      role: userRole
     });
 
     const token = jwt.sign(
@@ -47,8 +57,8 @@ exports.register = async (req, res, next) => {
         status: user.status
       }
     });
-  } catch (err) {
-    next(err);
+  } catch (error) {
+    next(error);
   }
 };
 
@@ -101,7 +111,7 @@ exports.login = async (req, res, next) => {
         status: user.status
       }
     });
-  } catch (err) {
-    next(err);
+  } catch (error) {
+    next(error);
   }
 };
