@@ -55,7 +55,7 @@ function renderEvents(events) {
       </div>
       <div class="card-footer">
         <span class="price-tag">From $${minPrice}</span>
-        <button class="btn-book" onclick="bookTicket('${event._id}', '${event.tickets[0]?._id}')">Book Ticket</button>
+        <button class="btn-book" onclick="bookTicket('${event._id}', '${event.tickets?.[0]?._id || ''}')">Book Ticket</button>
       </div>
     `;
     grid.appendChild(card);
